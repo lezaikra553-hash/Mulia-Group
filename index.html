@@ -34,6 +34,8 @@
   <button id="btnPenawaran" class="tabBtn active" onclick="openApp('penawaran')">📄 Penawaran & Invoice</button>
   <button id="btnKas" class="tabBtn" onclick="openApp('kas')">💰 Kas Besar</button>
   <button class="topBtn green" onclick="loginGooglePortal()">🔐 Login Google</button>
+  <button class="topBtn green" onclick="portalManualSync()">☁ Sinkronkan</button>
+  <button class="topBtn" onclick="portalManualRestore()">↩ Restore Drive</button>
   <button class="topBtn red" onclick="portalLogout()">Keluar</button>
   <span class="driveMini"><span id="portalDot" class="dot"></span><span id="portalGoogleStatus">Google belum login</span></span>
 </div>
@@ -64,12 +66,222 @@ function loginGooglePortal(){
     window.PORTAL_ACCESS_TOKEN=resp.access_token; sessionStorage.setItem('PORTAL_GOOGLE_TOKEN',resp.access_token);
     try{const u=await fetch('https://www.googleapis.com/oauth2/v3/userinfo',{headers:{Authorization:'Bearer '+resp.access_token}}).then(r=>r.json());window.PORTAL_GOOGLE_EMAIL=(u.email||'').toLowerCase();}catch(e){window.PORTAL_GOOGLE_EMAIL='';}
     if(window.PORTAL_GOOGLE_EMAIL && window.PORTAL_GOOGLE_EMAIL!==ALLOWED_EMAIL.toLowerCase()){window.PORTAL_ACCESS_TOKEN='';sessionStorage.removeItem('PORTAL_GOOGLE_TOKEN');sessionStorage.removeItem('PORTAL_GOOGLE_EMAIL');updatePortalGoogleUi();return alert('Akun Google tidak diizinkan. Gunakan '+ALLOWED_EMAIL);}
-    sessionStorage.setItem('PORTAL_GOOGLE_EMAIL',window.PORTAL_GOOGLE_EMAIL||ALLOWED_EMAIL); updatePortalGoogleUi(); alert('Login Google portal berhasil: '+(window.PORTAL_GOOGLE_EMAIL||ALLOWED_EMAIL));
+    sessionStorage.setItem('PORTAL_GOOGLE_EMAIL',window.PORTAL_GOOGLE_EMAIL||ALLOWED_EMAIL); updatePortalGoogleUi(); alert('Login Google portal berhasil: '+(window.PORTAL_GOOGLE_EMAIL||ALLOWED_EMAIL)); setTimeout(portalSmartSyncAfterLogin,500);
   }});
   tokenClient.requestAccessToken({prompt:'consent'});
 }
 function openApp(app){const isPen=app==='penawaran';document.getElementById('framePenawaran').classList.toggle('active',isPen);document.getElementById('frameKas').classList.toggle('active',!isPen);document.getElementById('btnPenawaran').classList.toggle('active',isPen);document.getElementById('btnKas').classList.toggle('active',!isPen);if(isPen)loadFrame('framePenawaran',APP_PENAWARAN_B64);else loadFrame('frameKas',APP_KAS_B64);sessionStorage.setItem('BERKAH_MULIA_PORTAL_LAST_APP',app);applyAllChildren();}
 if(sessionStorage.getItem('PORTAL_OK')==='1'){document.getElementById('portalLogin').style.display='none';loadFrame('framePenawaran',APP_PENAWARAN_B64);const last=sessionStorage.getItem('BERKAH_MULIA_PORTAL_LAST_APP');if(last==='kas')openApp('kas');}
+
+
+/* ==========================================================
+   PATCH SYNC V3 - PORTAL BERKAH MULIA
+   Tujuan:
+   1) 1 login Google untuk semua modul.
+   2) Data Penawaran/Invoice dan Kas Besar tersimpan terpisah.
+   3) Saat buka di HP/laptop lain, klik Login Google lalu Restore/Sinkronkan.
+   4) Auto backup ke Google Drive saat data lokal berubah.
+   ========================================================== */
+const PORTAL_SYNC_FILE = 'berkah_mulia_portal_sync_latest.json';
+const PORTAL_SYNC_VERSION = 'SYNC_V3_2026_06_29';
+let portalSyncTimer = null;
+let portalUploadTimer = null;
+let portalLastHash = '';
+let portalSyncBusy = false;
+
+function portalSetStatus(txt, ok=false){
+  const st=document.getElementById('portalGoogleStatus');
+  const dot=document.getElementById('portalDot');
+  if(st) st.textContent=txt;
+  if(dot) dot.classList.toggle('on', !!ok);
+}
+function portalSyncAllowedKey(k){
+  return (
+    k==='MULIA_GROUP_STABLE_DB_V1' ||
+    k==='BERKAH_MULIA_KAS_BESAR_ACTIVE_DB' ||
+    k==='BERKAH_MULIA_KAS_LAST_SAVED_AT' ||
+    k==='kasBesarBM_V8_ENTERPRISE' ||
+    k==='kasBesarBM_V8_PIN_SHA256' ||
+    k==='kasBesarBM_V8_ROLE' ||
+    k==='kasBesarBM_V8_AUTO_BACKUP' ||
+    k==='kasBesarBM_V8_GOOGLE_USER' ||
+    k==='MULIA_MIGRATED_OLD_KEYS_V1' ||
+    k.startsWith('PENAWARAN_') ||
+    k.startsWith('INVOICE_') ||
+    k.startsWith('MULIA_') ||
+    k.startsWith('QUOTE_') ||
+    k.startsWith('BERKAH_MULIA_')
+  ) && !k.includes('GOOGLE_TOKEN') && !k.includes('PORTAL_GOOGLE_TOKEN') && !k.includes('PORTAL_OK');
+}
+function portalCollectStorage(){
+  const data={};
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k && portalSyncAllowedKey(k)) data[k]=localStorage.getItem(k);
+    }
+  }catch(e){console.warn('Gagal collect storage',e)}
+  return data;
+}
+function portalHasBusinessData(data=portalCollectStorage()){
+  try{
+    const q=data.MULIA_GROUP_STABLE_DB_V1 ? JSON.parse(data.MULIA_GROUP_STABLE_DB_V1) : null;
+    if(q && ((q.quotes&&q.quotes.length)||(q.invoices&&q.invoices.length))) return true;
+  }catch(e){}
+  try{
+    const k=data.BERKAH_MULIA_KAS_BESAR_ACTIVE_DB || data.kasBesarBM_V8_ENTERPRISE;
+    const j=k ? JSON.parse(k) : null;
+    if(j && (j.fileName || (j.sheets&&j.sheets.length) || (j.materials&&j.materials.length) || (j.receivables&&j.receivables.length))) return true;
+  }catch(e){}
+  return false;
+}
+async function portalHashSnapshot(data){
+  const txt=JSON.stringify(data, Object.keys(data).sort());
+  const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(txt));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function portalDriveHeaders(extra={}){
+  if(!window.PORTAL_ACCESS_TOKEN) throw new Error('Silakan Login Google dulu.');
+  return Object.assign({Authorization:'Bearer '+window.PORTAL_ACCESS_TOKEN}, extra);
+}
+async function portalFindSyncFile(){
+  const q=encodeURIComponent(`name='${PORTAL_SYNC_FILE}' and trashed=false`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime,size)&pageSize=10`,{headers:portalDriveHeaders()});
+  const j=await r.json();
+  if(!r.ok) throw new Error(j.error?.message || 'Gagal mencari backup portal di Drive.');
+  return (j.files||[]).sort((a,b)=>String(b.modifiedTime).localeCompare(String(a.modifiedTime)))[0] || null;
+}
+async function portalUploadJson(name,payload,existingId=null){
+  const boundary='-------BM_SYNC_'+Date.now();
+  const metadata={name,mimeType:'application/json'};
+  const body='--'+boundary+'\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n'+JSON.stringify(metadata)+'\r\n--'+boundary+'\r\nContent-Type: application/json\r\n\r\n'+JSON.stringify(payload)+'\r\n--'+boundary+'--';
+  const url=existingId?`https://www.googleapis.com/upload/drive/v3/files/${existingId}?uploadType=multipart`:'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+  const method=existingId?'PATCH':'POST';
+  const r=await fetch(url,{method,headers:portalDriveHeaders({'Content-Type':'multipart/related; boundary='+boundary}),body});
+  const j=await r.json();
+  if(!r.ok) throw new Error(j.error?.message || 'Upload sinkron Drive gagal.');
+  return j;
+}
+async function portalDownloadSyncFile(fileId){
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{headers:portalDriveHeaders()});
+  const j=await r.json();
+  if(!r.ok) throw new Error(j.error?.message || 'Download backup Drive gagal.');
+  return j;
+}
+function portalApplyStorage(data){
+  if(!data || typeof data!=='object') throw new Error('Format data restore tidak valid.');
+  Object.entries(data).forEach(([k,v])=>{
+    if(portalSyncAllowedKey(k) && typeof v==='string') localStorage.setItem(k,v);
+  });
+  localStorage.setItem('PORTAL_SYNC_LOCAL_UPDATED_AT', new Date().toISOString());
+  // reload iframe agar aplikasi membaca data baru dari localStorage
+  try{document.getElementById('framePenawaran').dataset.loaded='';document.getElementById('frameKas').dataset.loaded='';}catch(e){}
+  const last=sessionStorage.getItem('BERKAH_MULIA_PORTAL_LAST_APP') || 'penawaran';
+  loadFrame('framePenawaran',APP_PENAWARAN_B64);
+  if(last==='kas') openApp('kas'); else openApp('penawaran');
+}
+async function portalBackupNow(show=true){
+  if(portalSyncBusy) return;
+  portalSyncBusy=true;
+  try{
+    if(!window.PORTAL_ACCESS_TOKEN) throw new Error('Silakan Login Google dulu.');
+    const data=portalCollectStorage();
+    const h=await portalHashSnapshot(data);
+    const payload={
+      version:PORTAL_SYNC_VERSION,
+      app:'Portal Berkah Mulia',
+      domain:location.origin,
+      email:window.PORTAL_GOOGLE_EMAIL||ALLOWED_EMAIL,
+      portalSyncAt:new Date().toISOString(),
+      hash:h,
+      storage:data
+    };
+    const file=await portalFindSyncFile();
+    await portalUploadJson(PORTAL_SYNC_FILE,payload,file?.id||null);
+    localStorage.setItem('PORTAL_SYNC_LOCAL_UPDATED_AT',payload.portalSyncAt);
+    localStorage.setItem('PORTAL_SYNC_LAST_HASH',h);
+    portalLastHash=h;
+    portalSetStatus('Sinkron Drive berhasil: '+new Date().toLocaleTimeString('id-ID'), true);
+    if(show) alert('Sinkron Google Drive berhasil. Data siap dibuka dari HP/laptop lain.');
+  }catch(e){
+    console.error(e); if(show) alert('Sinkron gagal: '+(e.message||e)); else portalSetStatus('Sinkron gagal: '+(e.message||e), false);
+  }finally{portalSyncBusy=false;}
+}
+async function portalRestoreFromDrive(force=false){
+  try{
+    if(!window.PORTAL_ACCESS_TOKEN) throw new Error('Silakan Login Google dulu.');
+    const file=await portalFindSyncFile();
+    if(!file) return alert('Backup portal belum ditemukan di Google Drive. Buka dari komputer yang datanya lengkap lalu klik Sinkronkan dulu.');
+    if(force && !confirm('Restore akan mengganti data lokal di perangkat ini dengan data dari Google Drive. Lanjut?')) return;
+    const payload=await portalDownloadSyncFile(file.id);
+    if(!payload.storage) throw new Error('Format backup portal tidak valid.');
+    portalApplyStorage(payload.storage);
+    portalLastHash=payload.hash||'';
+    localStorage.setItem('PORTAL_SYNC_LAST_HASH', portalLastHash);
+    localStorage.setItem('PORTAL_SYNC_LOCAL_UPDATED_AT', payload.portalSyncAt || file.modifiedTime || new Date().toISOString());
+    portalSetStatus('Restore Drive berhasil: '+new Date().toLocaleTimeString('id-ID'), true);
+    alert('Restore dari Google Drive berhasil. Data lama sekarang sudah masuk ke perangkat ini.');
+  }catch(e){console.error(e); alert('Restore gagal: '+(e.message||e));}
+}
+async function portalSmartSyncAfterLogin(){
+  try{
+    if(!window.PORTAL_ACCESS_TOKEN) return;
+    portalSetStatus('Mengecek data Drive...', true);
+    const localData=portalCollectStorage();
+    const localHas=portalHasBusinessData(localData);
+    const localHash=await portalHashSnapshot(localData);
+    portalLastHash=localHash;
+    const file=await portalFindSyncFile();
+    if(!file){
+      if(localHas) await portalBackupNow(false);
+      portalSetStatus(localHas?'Backup awal dibuat':'Google aktif - belum ada data', true);
+      return;
+    }
+    const payload=await portalDownloadSyncFile(file.id);
+    const remoteAt=Date.parse(payload.portalSyncAt || file.modifiedTime || 0) || 0;
+    const localAt=Date.parse(localStorage.getItem('PORTAL_SYNC_LOCAL_UPDATED_AT') || localStorage.getItem('BERKAH_MULIA_KAS_LAST_SAVED_AT') || 0) || 0;
+    if(!localHas || (remoteAt > localAt + 1500)){
+      portalApplyStorage(payload.storage||{});
+      portalSetStatus('Auto restore Drive berhasil', true);
+    }else if(localHash !== (payload.hash||'')){
+      await portalBackupNow(false);
+    }else{
+      portalSetStatus('Google aktif - data sudah sinkron', true);
+    }
+  }catch(e){console.warn('Smart sync gagal',e); portalSetStatus('Google aktif - sync perlu manual', true);}
+}
+async function portalManualSync(){
+  if(!window.PORTAL_ACCESS_TOKEN) return loginGooglePortal();
+  await portalBackupNow(true);
+}
+async function portalManualRestore(){
+  if(!window.PORTAL_ACCESS_TOKEN) return loginGooglePortal();
+  await portalRestoreFromDrive(true);
+}
+async function portalWatchLocalChanges(){
+  try{
+    if(!window.PORTAL_ACCESS_TOKEN) return;
+    const data=portalCollectStorage();
+    const h=await portalHashSnapshot(data);
+    if(!portalLastHash) portalLastHash=localStorage.getItem('PORTAL_SYNC_LAST_HASH')||h;
+    if(h!==portalLastHash && portalHasBusinessData(data)){
+      portalLastHash=h;
+      localStorage.setItem('PORTAL_SYNC_LOCAL_UPDATED_AT', new Date().toISOString());
+      clearTimeout(portalUploadTimer);
+      portalUploadTimer=setTimeout(()=>portalBackupNow(false),2500);
+      portalSetStatus('Perubahan terdeteksi, menyiapkan sync...', true);
+    }
+  }catch(e){console.warn(e)}
+}
+function portalStartSyncWatcher(){
+  if(portalSyncTimer) return;
+  portalSyncTimer=setInterval(portalWatchLocalChanges,7000);
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden' && window.PORTAL_ACCESS_TOKEN) portalBackupNow(false);});
+  window.addEventListener('beforeunload',()=>{try{if(window.PORTAL_ACCESS_TOKEN) portalBackupNow(false)}catch(e){}});
+}
+portalStartSyncWatcher();
+if(window.PORTAL_ACCESS_TOKEN){setTimeout(portalSmartSyncAfterLogin,1200);}
+
 updatePortalGoogleUi();setInterval(updatePortalGoogleUi,2500);
 </script>
 </body>
