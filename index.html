@@ -18,6 +18,14 @@
 @media print{.portalTop,#portalLogin{display:none!important}.frameWrap{top:0}}
 
 .commandPage{display:none;min-height:100%;padding:24px 28px 40px;max-width:1500px;margin:auto}.commandPage.active{display:block}.frameWrap{top:76px;overflow:auto}.portalTop{height:76px;overflow-x:auto}.portalVersion{display:block;color:#93c5fd;font-size:10px}.hero{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:24px;margin-bottom:18px;background:linear-gradient(135deg,#fff,#dbeafe);border:1px solid #bfdbfe;border-radius:22px;box-shadow:0 12px 30px rgba(15,23,42,.08)}.hero h1{margin:0;font-size:34px}.hero p{margin:8px 0 0;color:#475569}.heroRight{text-align:right;font-weight:800}.heroRight small{display:block;color:#2563eb;margin-top:6px}.enterpriseGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}.metric,.enterpriseCard{background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(15,23,42,.06)}.metric{border-left:5px solid #2563eb}.metric .label{font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase}.metric .value{font-size:30px;font-weight:900;margin-top:7px}.metric .hint{font-size:11px;color:#94a3b8;margin-top:4px}.enterpriseTwo{display:grid;grid-template-columns:2fr 1fr;gap:14px}.enterpriseCard h3{margin:0 0 14px}.moduleGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.moduleTile{background:#f8fafc;border:1px solid #dbe3ef;border-radius:14px;padding:15px;text-align:left;min-height:88px;cursor:pointer}.moduleTile:hover{border-color:#60a5fa;box-shadow:0 8px 20px rgba(37,99,235,.12)}.moduleTile b,.moduleTile span{display:block}.moduleTile span{font-size:11px;color:#64748b;margin-top:7px}.quickList{display:grid;gap:10px}.quickItem{display:flex;justify-content:space-between;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px}.pill{background:#dcfce7;color:#047857;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:900}.pipeline{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;overflow-x:auto}.pipe{background:#eff6ff;border:1px solid #bfdbfe;border-radius:13px;padding:12px;font-size:11px;font-weight:800}.pipe strong{display:block;font-size:24px;margin-top:6px;color:#1d4ed8}.opsTabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}.opsTab,.smallBtn{border:1px solid #cbd5e1;background:#fff;border-radius:11px;padding:10px 14px;font-weight:800;cursor:pointer}.opsTab.active,.smallBtn.primary{background:#2563eb;color:#fff;border-color:#2563eb}#opsContent table{width:100%;border-collapse:collapse}#opsContent th,#opsContent td{padding:10px;border-bottom:1px solid #e2e8f0;text-align:left}.appFrame{display:none}.appFrame.active{display:block}@media(max-width:1050px){.enterpriseGrid{grid-template-columns:repeat(2,1fr)}.enterpriseTwo{grid-template-columns:1fr}.moduleGrid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.commandPage{padding:14px}.hero{align-items:flex-start;flex-direction:column}.hero h1{font-size:27px}.heroRight{text-align:left}.enterpriseGrid,.moduleGrid{grid-template-columns:1fr}.portalTop{height:auto;position:relative;flex-wrap:wrap}.frameWrap{top:0;position:relative;height:calc(100vh - 150px)}}
+
+/* === V2.0.1 STABLE MAX PATCH === */
+#portalLoader{position:fixed;inset:76px 0 0;z-index:999998;background:rgba(241,245,249,.92);display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+#portalLoader.show{display:flex}.loaderBox{background:#fff;border:1px solid #dbe3ef;border-radius:18px;padding:22px 28px;box-shadow:0 18px 50px rgba(15,23,42,.18);font-weight:900;color:#0f172a}.loaderSpin{width:24px;height:24px;border:3px solid #dbeafe;border-top-color:#2563eb;border-radius:50%;display:inline-block;vertical-align:middle;margin-right:10px;animation:muliaspin .8s linear infinite}@keyframes muliaspin{to{transform:rotate(360deg)}}
+.systemBar{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.systemChip{font-size:10px;font-weight:900;border-radius:999px;padding:5px 9px;background:#e2e8f0;color:#334155}.systemChip.ok{background:#dcfce7;color:#047857}.systemChip.warn{background:#fef3c7;color:#92400e}
+.metric .value{word-break:break-word}.dataTable tbody tr:hover{background:#f8fafc}.emptyState{padding:28px!important;text-align:center!important;color:#64748b}
+@media(max-width:650px){#portalLoader{inset:0}.metric .value{font-size:24px}}
+
 </style>
 </head>
 <body>
@@ -44,6 +52,7 @@
   <button class="topBtn red" onclick="portalLogout()">Keluar</button>
   <span class="driveMini"><span id="portalDot" class="dot"></span><span id="portalGoogleStatus">Google belum login</span></span>
 </div>
+<div id="portalLoader"><div class="loaderBox"><span class="loaderSpin"></span>Memuat modul Mulia Group…</div></div>
 <div class="frameWrap">
   <section id="pageDashboard" class="commandPage active"><div class="hero"><div><h1>Enterprise Command Center</h1><p>Pusat kendali CV. Berkah Mulia Adv • PT. Dwi Mulia Advertising • PT. Azkia Mulia Perada</p></div><div class="heroRight" id="heroClock">-<small>Status sistem: siap</small></div></div><div class="enterpriseGrid" id="metrics"></div><div class="enterpriseTwo"><div class="enterpriseCard"><h3>Modul Utama</h3><div class="moduleGrid"><button class="moduleTile" onclick="openApp('penawaran')"><b>📄 Penawaran & Invoice</b><span>Customer, quotation, invoice, piutang</span></button><button class="moduleTile" onclick="openApp('kas')"><b>💰 Kas & Keuangan</b><span>Kas besar, laporan dan investor</span></button><button class="moduleTile" onclick="openApp('absensi')"><b>👷 HR & Payroll</b><span>Absensi, lembur, gaji, slip</span></button><button class="moduleTile" onclick="openApp('operasional');showOps('projects')"><b>🏗 Project Control</b><span>Pipeline dan progres pekerjaan</span></button><button class="moduleTile" onclick="openApp('operasional');showOps('purchasing')"><b>🛒 Purchasing</b><span>Permintaan dan pembelian material</span></button><button class="moduleTile" onclick="openApp('operasional');showOps('inventory')"><b>📦 Inventory</b><span>Stok material dan minimum stok</span></button></div></div><div class="enterpriseCard"><h3>Perhatian Owner</h3><div class="quickList" id="ownerAlerts"></div></div></div><div class="enterpriseCard" style="margin-top:14px"><h3>Pipeline Project</h3><div class="pipeline" id="pipeline"></div></div></section>
   <section id="pageOperasional" class="commandPage"><div class="hero"><div><h1>Operasional Mulia Group</h1><p>Project, purchasing, inventory, jadwal dan audit aktivitas.</p></div><button class="smallBtn primary" onclick="addRecord()">+ Tambah Data</button></div><div class="opsTabs"><button class="opsTab active" data-ops="projects" onclick="showOps('projects')">Project</button><button class="opsTab" data-ops="purchasing" onclick="showOps('purchasing')">Purchasing</button><button class="opsTab" data-ops="inventory" onclick="showOps('inventory')">Inventory</button><button class="opsTab" data-ops="tasks" onclick="showOps('tasks')">Tugas & Jadwal</button><button class="opsTab" data-ops="audit" onclick="showOps('audit')">Audit Log</button></div><div class="enterpriseCard"><div id="opsContent"></div></div></section>
@@ -485,7 +494,7 @@ function repaint(){syncInvoiceProjects();const e=ent||{projects:[],purchasing:[]
  const al=document.getElementById('ownerAlerts');if(al)al.innerHTML=(sales.receivable?`<div class="quickItem"><span>Invoice belum lunas</span><span class="pill">${money(sales.receivable)}</span></div>`:'')+(kas.piutang?`<div class="quickItem"><span>Piutang Kas Besar</span><span class="pill">${money(kas.piutang)}</span></div>`:'')+(low?`<div class="quickItem"><span>Stok minimum</span><span class="pill">${low} item</span></div>`:'')+(!sales.receivable&&!kas.piutang&&!low?'<div class="quickItem"><span>Tidak ada peringatan kritis</span><span class="pill">AMAN</span></div>':'');
  }
  window.renderEnterprise=repaint;
- window.addEventListener('storage',()=>setTimeout(repaint,50));setInterval(()=>{if(document.getElementById('pageDashboard')?.classList.contains('active'))repaint()},1500);setTimeout(repaint,300);
+ window.addEventListener('storage',()=>setTimeout(repaint,50));setInterval(()=>{if(document.getElementById('pageDashboard')?.classList.contains('active'))repaint()},15000);setTimeout(repaint,300);
  const oldRenderOps=window.renderOps;window.renderOps=function(){try{return oldRenderOps()}catch(err){const el=document.getElementById('opsContent');if(el)el.innerHTML='<div class="emptyState">Belum ada data operasional. Klik <b>+ Tambah Data</b> untuk mulai.</div>';console.error(err)}};
 })();
 </script>
@@ -551,8 +560,35 @@ function refresh(){build(); try{repaint()}catch(e){try{renderEnterprise()}catch(
 window.MuliaUnifiedSync={refresh,masterKey:MASTER,setProjectStatus:function(invoiceNo,status){const k=String(invoiceNo||'').toLowerCase();const p=(ent.projects||[]).find(x=>String(x.autoInvoiceKey||x.invoiceNo||x.autoKey||'').toLowerCase()===k);if(p){p.status=normalizeStatus(status,p.status);saveEnt('Status project '+invoiceNo+' → '+p.status);refresh();return true}return false}};
 ['framePenawaran','frameKas','frameAbsensi'].forEach(id=>document.getElementById(id)?.addEventListener('load',()=>setTimeout(refresh,500)));
 window.addEventListener('storage',refresh);
-setInterval(refresh,1200);
+setInterval(refresh,15000);
 setTimeout(refresh,250);
+})();
+</script>
+
+
+<script id="mulia-stable-max-patch">
+(function(){
+'use strict';
+const VERSION='V2.0.1 STABLE';
+let refreshTimer=null;
+function loader(on){const el=document.getElementById('portalLoader');if(el)el.classList.toggle('show',!!on)}
+function debouncedRefresh(){clearTimeout(refreshTimer);refreshTimer=setTimeout(()=>{try{window.MuliaUnifiedSync?.refresh()}catch(e){console.warn(e)}try{window.renderEnterprise?.()}catch(e){}},180)}
+window.addEventListener('message',e=>{const t=e.data?.type||'';if(/save|update|delete|restore|sync|invoice|quote|payroll|kas|absensi/i.test(t))debouncedRefresh()});
+window.addEventListener('storage',debouncedRefresh);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')debouncedRefresh()});
+const oldOpen=window.openApp;window.openApp=function(app){loader(true);try{return oldOpen(app)}finally{setTimeout(()=>{loader(false);debouncedRefresh()},450)}};
+['framePenawaran','frameKas','frameAbsensi'].forEach(id=>document.getElementById(id)?.addEventListener('load',()=>{loader(false);debouncedRefresh()}));
+function health(){
+ const h=document.getElementById('heroClock'); if(!h)return;
+ const google=!!window.PORTAL_ACCESS_TOKEN;
+ const sales=!!localStorage.getItem('MULIA_GROUP_STABLE_DB_V1');
+ const kas=!!(localStorage.getItem('BERKAH_MULIA_KAS_BESAR_ACTIVE_DB')||localStorage.getItem('kasBesarBM_V8_ENTERPRISE'));
+ const hr=!!(localStorage.getItem('berkah_absensi_gaji_kalender_v4')||localStorage.getItem('berkah_absensi_gaji_kalender_v3'));
+ const at=localStorage.getItem('PORTAL_SYNC_LOCAL_UPDATED_AT');
+ h.innerHTML=new Date().toLocaleString('id-ID',{dateStyle:'full',timeStyle:'short'})+`<small>${VERSION} • Auto-save aktif</small><div class="systemBar"><span class="systemChip ${sales?'ok':'warn'}">Penawaran ${sales?'siap':'kosong'}</span><span class="systemChip ${kas?'ok':'warn'}">Kas ${kas?'siap':'kosong'}</span><span class="systemChip ${hr?'ok':'warn'}">HR ${hr?'siap':'kosong'}</span><span class="systemChip ${google?'ok':'warn'}">Drive ${google?'terhubung':'belum login'}</span>${at?`<span class="systemChip">Update ${new Date(at).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'})}</span>`:''}</div>`;
+}
+setInterval(health,5000);setTimeout(()=>{health();debouncedRefresh()},300);
+window.addEventListener('error',e=>{console.error('Portal error:',e.error||e.message);const st=document.getElementById('portalGoogleStatus');if(st&&!window.PORTAL_ACCESS_TOKEN)st.textContent='Aplikasi aktif • Drive belum login'});
 })();
 </script>
 
