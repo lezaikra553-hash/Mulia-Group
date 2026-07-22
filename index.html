@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Portal Mulia Group V2.0.3 Production Stable</title>
+<title>Portal Mulia Group V2.0.4 Session Refresh FIX</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Arial,system-ui,sans-serif;background:#0f172a;color:#0f172a}
@@ -40,7 +40,7 @@
   </div>
 </div>
 <div class="portalTop">
-  <div class="brand">PORTAL MULIA GROUP <span class="portalVersion">V2.0.3 PRODUCTION</span><small>Command Center • Finance • Project • HR • Google Drive</small></div>
+  <div class="brand">PORTAL MULIA GROUP <span class="portalVersion">V2.0.4 REFRESH FIX</span><small>Command Center • Finance • Project • HR • Google Drive</small></div>
   <button id="btnDashboard" class="tabBtn active" onclick="openApp('dashboard')">🏠 Dashboard</button>
   <button id="btnOperasional" class="tabBtn" onclick="openApp('operasional')">🏗 Operasional</button>
   <button id="btnPenawaran" class="tabBtn" onclick="openApp('penawaran')">📄 Penawaran & Invoice</button>
@@ -585,6 +585,44 @@ function health(){
 }
 setInterval(health,5000);setTimeout(()=>{health();debouncedRefresh()},300);
 window.addEventListener('error',e=>{console.error('Portal error:',e.error||e.message);const st=document.getElementById('portalGoogleStatus');if(st&&!window.PORTAL_ACCESS_TOKEN)st.textContent='Aplikasi aktif • Drive belum login'});
+})();
+</script>
+
+
+<script id="mulia-v204-session-refresh-fix">
+(function(){
+  'use strict';
+  function restorePortalSession(){
+    const loggedIn = sessionStorage.getItem('PORTAL_OK') === '1';
+    const login = document.getElementById('portalLogin');
+    if (!loggedIn) {
+      if (login) login.style.display = 'flex';
+      return;
+    }
+    if (login) login.style.display = 'none';
+    const lastApp = sessionStorage.getItem('BERKAH_MULIA_PORTAL_LAST_APP') || 'dashboard';
+    setTimeout(function(){
+      try {
+        if (typeof window.openApp === 'function') window.openApp(lastApp);
+        else if (typeof openApp === 'function') openApp(lastApp);
+      } catch (err) {
+        console.error('Session restore gagal:', err);
+        try { window.openApp?.('dashboard'); } catch (_) {}
+      }
+      setTimeout(function(){
+        try { window.MuliaUnifiedSync?.refresh?.(); } catch (_) {}
+        try { window.renderEnterprise?.(); } catch (_) {}
+      }, 500);
+    }, 50);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', restorePortalSession, {once:true});
+  } else {
+    restorePortalSession();
+  }
+  window.addEventListener('pageshow', function(event){
+    if (event.persisted) restorePortalSession();
+  });
 })();
 </script>
 
